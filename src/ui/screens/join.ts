@@ -76,6 +76,7 @@ export function renderJoin(container: HTMLElement, hostId: string): void {
       bus.on('peer:disconnected', () => {
         guestInstance?.destroy();
         guestInstance = null;
+        pause();
         bus.emit('ui:show-toast', { message: 'Lost connection to host', type: 'error' });
         navigate('/');
       });

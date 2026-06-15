@@ -18,8 +18,9 @@ export function renderPlayer(container: HTMLElement): void {
   const isHost = getHostInstance() !== null;
   const isGuest = getGuestInstance() !== null;
 
-  // No active session — redirect to home
+  // No active session — stop audio and redirect to home
   if (!isHost && !isGuest) {
+    youtube.pause();
     navigate('/');
     return;
   }
