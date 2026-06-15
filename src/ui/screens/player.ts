@@ -63,7 +63,7 @@ export function renderPlayer(container: HTMLElement): void {
 
         <!-- Controls (host only) -->
         ${isHost ? `
-        <div class="flex items-center justify-center gap-4 mt-4">
+        <div id="player-controls" class="flex items-center justify-center gap-4 mt-4" style="${state.currentTrack ? '' : 'display:none'}">
           <button id="btn-play-pause" class="w-12 h-12 rounded-full bg-primary-500 hover:bg-primary-600 flex items-center justify-center transition-colors">
             <span id="play-icon">${state.isPlaying ? '&#9646;&#9646;' : '&#9654;'}</span>
           </button>
@@ -94,6 +94,11 @@ export function renderPlayer(container: HTMLElement): void {
 
       <!-- Vote Overlay -->
       <div id="vote-overlay" class="hidden"></div>
+
+      <!-- Ad Blocker Banner -->
+      <div id="ad-banner" class="hidden fixed top-0 left-0 right-0 bg-yellow-600/90 text-white text-center text-sm py-2 px-4 z-50">
+        ⚠️ Ad detected — audio muted until it ends
+      </div>
     </div>
   `);
 
@@ -228,12 +233,29 @@ function setupListeners(container: HTMLElement, _isHost: boolean): void {
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
   });
+
+  // Ad blocker UI feedback
+  bus.on('player:ad-blocked', () => {
+    const adBanner = container.querySelector('#ad-banner') as HTMLElement | null;
+    if (adBanner) {
+      adBanner.classList.remove('hidden');
+    }
+    bus.emit('ui:show-toast', { message: 'Ad detected — audio muted', type: 'info' });
+  });
+
+  bus.on('player:ad-ended', () => {
+    const adBanner = container.querySelector('#ad-banner') as HTMLElement | null;
+    if (adBanner) {
+      adBanner.classList.add('hidden');
+    }
+  });
 }
 
 function updateTrackDisplay(container: HTMLElement, track: Track | null): void {
   const titleEl = container.querySelector('#track-title');
   const submitterEl = container.querySelector('#track-submitter');
   const progressContainer = container.querySelector('#progress-container') as HTMLElement;
+  const playerControls = container.querySelector('#player-controls') as HTMLElement | null;
 
   if (titleEl) {
     titleEl.textContent = track?.title ?? 'No track playing';
@@ -243,6 +265,9 @@ function updateTrackDisplay(container: HTMLElement, track: Track | null): void {
   }
   if (progressContainer) {
     progressContainer.style.display = track ? '' : 'none';
+  }
+  if (playerControls) {
+    playerControls.style.display = track ? '' : 'none';
   }
 }
 

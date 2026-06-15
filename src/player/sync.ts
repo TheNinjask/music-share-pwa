@@ -20,6 +20,9 @@ export function initHostSync(broadcastFn: (msg: { type: 'SYNC'; videoId: string;
     const videoId = getCurrentVideoId();
     if (!videoId) return;
 
+    // Don't broadcast during ads — position would be wrong
+    if (youtube.isAdActive()) return;
+
     broadcastFn({
       type: 'SYNC',
       videoId,
@@ -45,6 +48,9 @@ export function initHostSync(broadcastFn: (msg: { type: 'SYNC'; videoId: string;
  */
 export function handleSyncMessage(msg: { type: 'SYNC'; videoId: string; position: number; playing: boolean; ts: number }): void {
   if (isHost) return;
+
+  // Don't fight the player during an ad — wait for it to finish
+  if (youtube.isAdActive()) return;
 
   // Calculate what the host's position should be now, accounting for network delay
   const networkDelay = (Date.now() - msg.ts + clockOffset) / 1000; // seconds

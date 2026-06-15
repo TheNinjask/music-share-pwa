@@ -1,5 +1,6 @@
 import { navigate } from '../../router';
 import { html } from '../render';
+import { version } from '../../../package.json';
 
 export function renderHome(container: HTMLElement): void {
   html(container, `
@@ -23,6 +24,7 @@ export function renderHome(container: HTMLElement): void {
       <div class="text-slate-600 text-xs mt-8">
         <p>Powered by WebRTC &bull; No server needed</p>
         <p class="mt-1">Share music peer-to-peer</p>
+        <p class="mt-2 text-slate-700">v${version}</p>
       </div>
     </div>
   `);

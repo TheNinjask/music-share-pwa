@@ -3,7 +3,7 @@ import { html } from '../render';
 import { PeerGuest } from '../../peer/guest';
 import { bus } from '../../events';
 import { restoreState } from '../../session/state';
-import { initPlayer, loadVideo, play, pause, getVideoTitle } from '../../player/youtube';
+import { initPlayer, loadVideo, play, pause, getVideoTitle, startAdBlocker } from '../../player/youtube';
 import { handleSyncMessage, setClockOffset } from '../../player/sync';
 import * as sessionState from '../../session/state';
 import type { Message } from '../../types';
@@ -57,6 +57,7 @@ export function renderJoin(container: HTMLElement, hostId: string): void {
     try {
       // Initialize player first
       await initPlayer();
+      startAdBlocker();
 
       // Connect to host
       guestInstance = new PeerGuest();

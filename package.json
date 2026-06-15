@@ -1,7 +1,7 @@
 {
   "name": "music-share-pwa",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.2.1",
   "description": "PWA for simultaneous YouTube audio listening with groups via WebRTC",
   "type": "module",
   "scripts": {
