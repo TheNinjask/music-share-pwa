@@ -3,7 +3,7 @@ import { html } from '../render';
 import { PeerGuest } from '../../peer/guest';
 import { bus } from '../../events';
 import { restoreState } from '../../session/state';
-import { initPlayer, loadVideo, play, pause } from '../../player/youtube';
+import { initPlayer, loadVideo, play, pause, getVideoTitle } from '../../player/youtube';
 import { handleSyncMessage, setClockOffset } from '../../player/sync';
 import * as sessionState from '../../session/state';
 import type { Message } from '../../types';
@@ -126,9 +126,22 @@ function handleGuestMessage(message: Message): void {
         loadVideo(message.videoId, message.position);
         sessionState.setCurrentTrack({
           videoId: message.videoId,
-          title: currentState.currentTrack?.title ?? 'Loading...',
-          submittedBy: currentState.currentTrack?.submittedBy ?? '',
+          title: message.title ?? 'Loading...',
+          submittedBy: message.submittedBy ?? '',
         });
+
+        // Fetch the actual title if not provided
+        if (!message.title) {
+          getVideoTitle(message.videoId).then((title) => {
+            const state = sessionState.getState();
+            if (state.currentTrack?.videoId === message.videoId) {
+              sessionState.setCurrentTrack({
+                ...state.currentTrack,
+                title,
+              });
+            }
+          });
+        }
       }
       handleSyncMessage(message);
 

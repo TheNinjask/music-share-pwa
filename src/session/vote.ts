@@ -164,6 +164,8 @@ function resolveVote(host: PeerHost): void {
         position: 0,
         playing: true,
         ts: Date.now(),
+        title: track.title,
+        submittedBy: track.submittedBy,
       };
       host.broadcast(syncMsg);
       bus.emit('ui:show-toast', { message: `"${track.title}" approved! Now playing.`, type: 'success' });

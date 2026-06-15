@@ -29,7 +29,7 @@ export interface SessionState {
 
 // ===== Message Protocol =====
 export type Message =
-  | { type: 'SYNC'; videoId: string; position: number; playing: boolean; ts: number }
+  | { type: 'SYNC'; videoId: string; position: number; playing: boolean; ts: number; title?: string; submittedBy?: string }
   | { type: 'SUBMIT'; videoId: string; title: string; submittedBy: string }
   | { type: 'QUEUE_UPDATE'; queue: Track[] }
   | { type: 'VOTE_START'; track: Track; deadline: number; submitterId: string }
