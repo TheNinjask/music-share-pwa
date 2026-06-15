@@ -63,7 +63,7 @@ export function renderPlayer(container: HTMLElement): void {
 
         <!-- Controls (host only) -->
         ${isHost ? `
-        <div class="flex items-center justify-center gap-4 mt-4">
+        <div id="player-controls" class="flex items-center justify-center gap-4 mt-4" style="${state.currentTrack ? '' : 'display:none'}">
           <button id="btn-play-pause" class="w-12 h-12 rounded-full bg-primary-500 hover:bg-primary-600 flex items-center justify-center transition-colors">
             <span id="play-icon">${state.isPlaying ? '&#9646;&#9646;' : '&#9654;'}</span>
           </button>
@@ -234,6 +234,7 @@ function updateTrackDisplay(container: HTMLElement, track: Track | null): void {
   const titleEl = container.querySelector('#track-title');
   const submitterEl = container.querySelector('#track-submitter');
   const progressContainer = container.querySelector('#progress-container') as HTMLElement;
+  const playerControls = container.querySelector('#player-controls') as HTMLElement | null;
 
   if (titleEl) {
     titleEl.textContent = track?.title ?? 'No track playing';
@@ -243,6 +244,9 @@ function updateTrackDisplay(container: HTMLElement, track: Track | null): void {
   }
   if (progressContainer) {
     progressContainer.style.display = track ? '' : 'none';
+  }
+  if (playerControls) {
+    playerControls.style.display = track ? '' : 'none';
   }
 }
 
