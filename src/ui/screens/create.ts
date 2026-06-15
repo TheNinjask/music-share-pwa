@@ -158,7 +158,7 @@ function handleHostMessage(from: string, message: Message): void {
         title: message.title,
         submittedBy: message.submittedBy,
       };
-      modeHandler.handleSubmit(track, hostInstance);
+      modeHandler.handleSubmit(track, hostInstance, from);
       break;
     }
     case 'VOTE_CAST': {

@@ -15,6 +15,10 @@ export class PeerGuest {
     return this._clockOffset;
   }
 
+  get peerId(): string {
+    return this.peer?.id ?? '';
+  }
+
   async connect(hostId: string, name: string): Promise<void> {
     this.hostId = hostId;
     this.guestName = name;
@@ -71,6 +75,12 @@ export class PeerGuest {
       return;
     }
 
+    // Respond to host health-check pings
+    if (message.type === 'PING') {
+      this.send({ type: 'PONG', clientTs: message.ts, hostTs: Date.now() });
+      return;
+    }
+
     bus.emit('peer:message', { from: this.hostId, message });
   }
 
@@ -113,7 +123,7 @@ export class PeerGuest {
 
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      bus.emit('ui:show-toast', { message: 'Lost connection to host', type: 'error' });
+      bus.emit('peer:disconnected', { peerId: this.hostId });
       return;
     }
 

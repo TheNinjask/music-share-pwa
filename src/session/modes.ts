@@ -6,7 +6,7 @@ import { PeerHost } from '../peer/host';
 import { startVote } from './vote';
 
 export interface ModeHandler {
-  handleSubmit(track: Track, host: PeerHost): void;
+  handleSubmit(track: Track, host: PeerHost, submitterId?: string): void;
   handleTrackEnded(host: PeerHost): void;
 }
 
@@ -49,14 +49,9 @@ class QueueMode implements ModeHandler {
  * Democratic mode: voting before adding to queue
  */
 class DemocraticMode implements ModeHandler {
-  handleSubmit(track: Track, host: PeerHost): void {
-    if (!sessionState.getState().currentTrack) {
-      // Nothing playing, start immediately (no vote needed)
-      playTrack(track, host);
-    } else {
-      // Start a vote
-      startVote(track, host);
-    }
+  handleSubmit(track: Track, host: PeerHost, submitterId?: string): void {
+    // Always start a vote in democratic mode
+    startVote(track, host, submitterId);
   }
 
   handleTrackEnded(host: PeerHost): void {
@@ -106,5 +101,14 @@ function playNextOrStop(host: PeerHost): void {
   } else {
     sessionState.setCurrentTrack(null);
     sessionState.setPlaying(false);
+    youtube.pause();
+    // Notify guests to stop playback
+    host.broadcast({
+      type: 'SYNC',
+      videoId: '',
+      position: 0,
+      playing: false,
+      ts: Date.now(),
+    });
   }
 }

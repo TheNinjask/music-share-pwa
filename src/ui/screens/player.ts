@@ -1,4 +1,5 @@
 import { bus } from '../../events';
+import { navigate } from '../../router';
 import { html, formatTime } from '../render';
 import * as sessionState from '../../session/state';
 import * as youtube from '../../player/youtube';
@@ -8,13 +9,20 @@ import { renderSharePanel } from '../components/share';
 import { renderQueuePanel } from '../components/queue';
 import { renderVoteOverlay } from '../components/vote';
 import { renderMembersPanel } from '../components/members';
-import type { Track } from '../../types';
+import type { Track, SessionMode } from '../../types';
 
 let progressTimer: ReturnType<typeof setInterval> | null = null;
 
 export function renderPlayer(container: HTMLElement): void {
   const state = sessionState.getState();
   const isHost = getHostInstance() !== null;
+  const isGuest = getGuestInstance() !== null;
+
+  // No active session — redirect to home
+  if (!isHost && !isGuest) {
+    navigate('/');
+    return;
+  }
 
   html(container, `
     <div class="flex-1 flex flex-col gap-4">
@@ -23,7 +31,7 @@ export function renderPlayer(container: HTMLElement): void {
         <div>
           <h2 class="text-lg font-bold">Now Playing</h2>
           <div class="flex items-center gap-2 mt-0.5">
-            <span class="badge-${state.mode === 'democratic' ? 'yellow' : state.mode === 'override' ? 'primary' : 'green'}">${state.mode}</span>
+            <span id="mode-badge" class="badge-${state.mode === 'democratic' ? 'yellow' : state.mode === 'override' ? 'primary' : 'green'}">${state.mode}</span>
             ${isHost ? '<span class="badge-primary">Host</span>' : '<span class="badge-green">Guest</span>'}
           </div>
         </div>
@@ -180,7 +188,7 @@ async function submitTrack(urlInput: HTMLInputElement): Promise<void> {
   if (isHost) {
     // Host handles submission directly via mode handler
     const track: Track = { videoId, title, submittedBy: state.members.find(m => m.isHost)?.name ?? 'Host' };
-    getModeHandler()?.handleSubmit(track, getHostInstance()!);
+    getModeHandler()?.handleSubmit(track, getHostInstance()!, state.hostId);
   } else {
     // Guest sends to host
     const guestName = state.members.find(m => !m.isHost)?.name ?? 'Guest';
@@ -201,16 +209,17 @@ function setupListeners(container: HTMLElement, _isHost: boolean): void {
     updateTrackDisplay(container, track);
   });
 
-  bus.on('session:state-update', () => {
+  bus.on('session:state-update', (state) => {
     updatePlayPauseButton(container);
+    updateModeBadge(container, state.mode);
     renderQueuePanel(container.querySelector('#queue-panel')!);
     renderMembersPanel(container.querySelector('#members-panel')!);
   });
 
-  bus.on('vote:started', ({ track, deadline }) => {
+  bus.on('vote:started', ({ track, deadline, submitterId }) => {
     const overlay = container.querySelector('#vote-overlay') as HTMLElement;
     overlay.classList.remove('hidden');
-    renderVoteOverlay(overlay, track, deadline);
+    renderVoteOverlay(overlay, track, deadline, submitterId);
   });
 
   bus.on('vote:ended', () => {
@@ -233,6 +242,15 @@ function updateTrackDisplay(container: HTMLElement, track: Track | null): void {
   }
   if (progressContainer) {
     progressContainer.style.display = track ? '' : 'none';
+  }
+}
+
+function updateModeBadge(container: HTMLElement, mode: SessionMode): void {
+  const badge = container.querySelector('#mode-badge');
+  if (badge) {
+    const badgeClass = mode === 'democratic' ? 'badge-yellow' : mode === 'override' ? 'badge-primary' : 'badge-green';
+    badge.className = badgeClass;
+    badge.textContent = mode;
   }
 }
 

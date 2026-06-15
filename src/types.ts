@@ -32,8 +32,9 @@ export type Message =
   | { type: 'SYNC'; videoId: string; position: number; playing: boolean; ts: number }
   | { type: 'SUBMIT'; videoId: string; title: string; submittedBy: string }
   | { type: 'QUEUE_UPDATE'; queue: Track[] }
-  | { type: 'VOTE_START'; track: Track; deadline: number }
+  | { type: 'VOTE_START'; track: Track; deadline: number; submitterId: string }
   | { type: 'VOTE_CAST'; vote: 'yes' | 'no'; from: string }
+  | { type: 'VOTE_UPDATE'; yes: number; no: number; total: number }
   | { type: 'VOTE_RESULT'; approved: boolean; track: Track }
   | { type: 'MEMBER_UPDATE'; members: Member[] }
   | { type: 'STATE_SNAPSHOT'; state: SessionState }
@@ -60,7 +61,7 @@ export interface AppEvents {
   'session:state-update': SessionState;
   'session:track-change': { track: Track | null };
   'session:queue-update': { queue: Track[] };
-  'vote:started': { track: Track; deadline: number };
+  'vote:started': { track: Track; deadline: number; submitterId: string };
   'vote:update': { yes: number; no: number; total: number };
   'vote:ended': { approved: boolean; track: Track };
   'ui:show-toast': { message: string; type: 'info' | 'error' | 'success' };
