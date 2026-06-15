@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="description" content="Listen to YouTube audio together in real-time" />
+    <link rel="icon" type="image/svg+xml" href="/music-share-pwa/icons/icon.svg" />
+    <link rel="apple-touch-icon" href="/music-share-pwa/icons/icon.svg" />
+    <title>Music Share</title>
+  </head>
+  <body class="bg-slate-900 text-white min-h-screen">
+    <div id="app" class="max-w-lg mx-auto px-4 py-6 min-h-screen flex flex-col"></div>
+    <div id="youtube-container" class="fixed -top-[9999px] -left-[9999px] w-[1px] h-[1px] overflow-hidden" aria-hidden="true"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
