@@ -94,6 +94,11 @@ export function renderPlayer(container: HTMLElement): void {
 
       <!-- Vote Overlay -->
       <div id="vote-overlay" class="hidden"></div>
+
+      <!-- Ad Blocker Banner -->
+      <div id="ad-banner" class="hidden fixed top-0 left-0 right-0 bg-yellow-600/90 text-white text-center text-sm py-2 px-4 z-50">
+        ⚠️ Ad detected — audio muted until it ends
+      </div>
     </div>
   `);
 
@@ -227,6 +232,22 @@ function setupListeners(container: HTMLElement, _isHost: boolean): void {
     const overlay = container.querySelector('#vote-overlay') as HTMLElement;
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
+  });
+
+  // Ad blocker UI feedback
+  bus.on('player:ad-blocked', () => {
+    const adBanner = container.querySelector('#ad-banner') as HTMLElement | null;
+    if (adBanner) {
+      adBanner.classList.remove('hidden');
+    }
+    bus.emit('ui:show-toast', { message: 'Ad detected — audio muted', type: 'info' });
+  });
+
+  bus.on('player:ad-ended', () => {
+    const adBanner = container.querySelector('#ad-banner') as HTMLElement | null;
+    if (adBanner) {
+      adBanner.classList.add('hidden');
+    }
   });
 }
 

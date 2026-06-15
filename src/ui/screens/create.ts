@@ -4,7 +4,7 @@ import { PeerHost } from '../../peer/host';
 import { initState } from '../../session/state';
 import { createModeHandler, ModeHandler } from '../../session/modes';
 import { initHostSync } from '../../player/sync';
-import { initPlayer } from '../../player/youtube';
+import { initPlayer, startAdBlocker } from '../../player/youtube';
 import { bus } from '../../events';
 import { castVote } from '../../session/vote';
 import * as sessionState from '../../session/state';
@@ -95,6 +95,7 @@ export function renderCreate(container: HTMLElement): void {
     try {
       // Initialize player
       await initPlayer();
+      startAdBlocker();
 
       // Create host peer
       hostInstance = new PeerHost();
