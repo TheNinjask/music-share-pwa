@@ -3,7 +3,7 @@ import { html } from '../render';
 import { PeerGuest } from '../../peer/guest';
 import { bus } from '../../events';
 import { restoreState } from '../../session/state';
-import { initPlayer, loadVideo, play, pause } from '../../player/youtube';
+import { initPlayer, loadVideo, play, pause, getVideoTitle } from '../../player/youtube';
 import { handleSyncMessage, setClockOffset } from '../../player/sync';
 import * as sessionState from '../../session/state';
 import type { Message } from '../../types';
@@ -72,6 +72,15 @@ export function renderJoin(container: HTMLElement, hostId: string): void {
         guestInstance?.send({ type: 'TRACK_ENDED' });
       });
 
+      // If disconnected from host, redirect to home
+      bus.on('peer:disconnected', () => {
+        guestInstance?.destroy();
+        guestInstance = null;
+        pause();
+        bus.emit('ui:show-toast', { message: 'Lost connection to host', type: 'error' });
+        navigate('/');
+      });
+
       // Update clock offset periodically
       setInterval(() => {
         if (guestInstance) {
@@ -102,15 +111,37 @@ function handleGuestMessage(message: Message): void {
       break;
     }
     case 'SYNC': {
+      // Empty videoId means playback has stopped
+      if (!message.videoId) {
+        pause();
+        sessionState.setCurrentTrack(null);
+        sessionState.setPlaying(false);
+        sessionState.setPosition(0);
+        break;
+      }
+
       // Load video if it's a new track
       const currentState = sessionState.getState();
       if (currentState.currentTrack?.videoId !== message.videoId) {
         loadVideo(message.videoId, message.position);
         sessionState.setCurrentTrack({
           videoId: message.videoId,
-          title: currentState.currentTrack?.title ?? 'Loading...',
-          submittedBy: currentState.currentTrack?.submittedBy ?? '',
+          title: message.title ?? 'Loading...',
+          submittedBy: message.submittedBy ?? '',
         });
+
+        // Fetch the actual title if not provided
+        if (!message.title) {
+          getVideoTitle(message.videoId).then((title) => {
+            const state = sessionState.getState();
+            if (state.currentTrack?.videoId === message.videoId) {
+              sessionState.setCurrentTrack({
+                ...state.currentTrack,
+                title,
+              });
+            }
+          });
+        }
       }
       handleSyncMessage(message);
 
@@ -133,7 +164,7 @@ function handleGuestMessage(message: Message): void {
       break;
     }
     case 'VOTE_START': {
-      bus.emit('vote:started', { track: message.track, deadline: message.deadline });
+      bus.emit('vote:started', { track: message.track, deadline: message.deadline, submitterId: message.submitterId });
       break;
     }
     case 'VOTE_RESULT': {
@@ -143,6 +174,10 @@ function handleGuestMessage(message: Message): void {
       } else {
         bus.emit('ui:show-toast', { message: `"${message.track.title}" was rejected`, type: 'info' });
       }
+      break;
+    }
+    case 'VOTE_UPDATE': {
+      bus.emit('vote:update', { yes: message.yes, no: message.no, total: message.total });
       break;
     }
     case 'PONG': {

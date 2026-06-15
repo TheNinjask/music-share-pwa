@@ -39,6 +39,8 @@ export function initState(mode: SessionMode, hostId: string, hostName: string): 
  */
 export function restoreState(snapshot: SessionState): void {
   state = { ...snapshot };
+  bus.emit('session:track-change', { track: state.currentTrack });
+  bus.emit('session:queue-update', { queue: [...state.queue] });
   emitUpdate();
 }
 

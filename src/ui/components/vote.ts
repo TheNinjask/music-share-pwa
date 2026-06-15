@@ -3,10 +3,16 @@ import { bus } from '../../events';
 import { getHostInstance } from '../screens/create';
 import { getGuestInstance } from '../screens/join';
 import { hostVote } from '../../session/vote';
+import * as sessionState from '../../session/state';
 import type { Track } from '../../types';
 
-export function renderVoteOverlay(container: HTMLElement, track: Track, deadline: number): void {
+export function renderVoteOverlay(container: HTMLElement, track: Track, deadline: number, submitterId: string): void {
   const isHost = getHostInstance() !== null;
+
+  // Determine if this user is the submitter
+  const state = sessionState.getState();
+  const myId = isHost ? state.hostId : getGuestInstance()?.peerId ?? '';
+  const isSubmitter = myId === submitterId;
 
   html(container, `
     <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-40 p-4">
@@ -32,12 +38,15 @@ export function renderVoteOverlay(container: HTMLElement, track: Track, deadline
         </div>
 
         <div class="flex gap-3 mt-4" id="vote-buttons">
-          <button id="btn-vote-yes" class="flex-1 btn bg-green-600 hover:bg-green-700 text-white">
-            Vote Yes
-          </button>
-          <button id="btn-vote-no" class="flex-1 btn bg-red-600 hover:bg-red-700 text-white">
-            Vote No
-          </button>
+          ${isSubmitter
+            ? '<p class="text-slate-400 text-sm text-center w-full">You submitted this track — auto-voted Yes</p>'
+            : `<button id="btn-vote-yes" class="flex-1 btn bg-green-600 hover:bg-green-700 text-white">
+              Vote Yes
+            </button>
+            <button id="btn-vote-no" class="flex-1 btn bg-red-600 hover:bg-red-700 text-white">
+              Vote No
+            </button>`
+          }
         </div>
       </div>
     </div>
@@ -62,21 +71,23 @@ export function renderVoteOverlay(container: HTMLElement, track: Track, deadline
     if (noCount) noCount.textContent = String(no);
   });
 
-  // Button handlers
-  const btnYes = container.querySelector('#btn-vote-yes') as HTMLButtonElement;
-  const btnNo = container.querySelector('#btn-vote-no') as HTMLButtonElement;
-  const buttonsDiv = container.querySelector('#vote-buttons') as HTMLElement;
+  // Button handlers (only if not the submitter)
+  if (!isSubmitter) {
+    const btnYes = container.querySelector('#btn-vote-yes') as HTMLButtonElement;
+    const btnNo = container.querySelector('#btn-vote-no') as HTMLButtonElement;
+    const buttonsDiv = container.querySelector('#vote-buttons') as HTMLElement;
 
-  const handleVote = (vote: 'yes' | 'no') => {
-    buttonsDiv.innerHTML = '<p class="text-slate-400 text-sm text-center w-full">Vote submitted!</p>';
+    const handleVote = (vote: 'yes' | 'no') => {
+      buttonsDiv.innerHTML = '<p class="text-slate-400 text-sm text-center w-full">Vote submitted!</p>';
 
-    if (isHost) {
-      hostVote(vote, getHostInstance()!);
-    } else {
-      getGuestInstance()?.send({ type: 'VOTE_CAST', vote, from: '' });
-    }
-  };
+      if (isHost) {
+        hostVote(vote, getHostInstance()!);
+      } else {
+        getGuestInstance()?.send({ type: 'VOTE_CAST', vote, from: '' });
+      }
+    };
 
-  btnYes.addEventListener('click', () => handleVote('yes'));
-  btnNo.addEventListener('click', () => handleVote('no'));
+    btnYes.addEventListener('click', () => handleVote('yes'));
+    btnNo.addEventListener('click', () => handleVote('no'));
+  }
 }

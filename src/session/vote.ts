@@ -1,6 +1,7 @@
 import { bus } from '../events';
-import type { Track } from '../types';
+import type { Track, Message } from '../types';
 import * as sessionState from './state';
+import * as youtube from '../player/youtube';
 import { PeerHost } from '../peer/host';
 
 const VOTE_DURATION = 30000; // 30 seconds
@@ -15,9 +16,24 @@ interface ActiveVote {
 let activeVote: ActiveVote | null = null;
 
 /**
+ * Broadcast and emit the current vote tally
+ */
+function emitTally(host: PeerHost): void {
+  if (!activeVote) return;
+  const yes = Array.from(activeVote.votes.values()).filter((v) => v === 'yes').length;
+  const no = Array.from(activeVote.votes.values()).filter((v) => v === 'no').length;
+  const total = sessionState.getState().members.length;
+
+  // Emit locally for host UI
+  bus.emit('vote:update', { yes, no, total });
+  // Broadcast to guests
+  host.broadcast({ type: 'VOTE_UPDATE', yes, no, total });
+}
+
+/**
  * Start a vote on a track (host only)
  */
-export function startVote(track: Track, host: PeerHost): void {
+export function startVote(track: Track, host: PeerHost, submitterId?: string): void {
   if (activeVote) {
     bus.emit('ui:show-toast', { message: 'A vote is already in progress', type: 'info' });
     return;
@@ -34,11 +50,28 @@ export function startVote(track: Track, host: PeerHost): void {
     }, VOTE_DURATION),
   };
 
+  // Auto-vote yes for the submitter
+  if (submitterId) {
+    activeVote.votes.set(submitterId, 'yes');
+  }
+
   // Broadcast vote start
-  host.broadcast({ type: 'VOTE_START', track, deadline });
+  host.broadcast({ type: 'VOTE_START', track, deadline, submitterId: submitterId ?? '' });
 
   // Also emit locally for host UI
-  bus.emit('vote:started', { track, deadline });
+  bus.emit('vote:started', { track, deadline, submitterId: submitterId ?? '' });
+
+  // Emit initial tally (includes auto-vote)
+  emitTally(host);
+
+  // Check if auto-vote already decides the outcome
+  const yes = Array.from(activeVote.votes.values()).filter((v) => v === 'yes').length;
+  const no = Array.from(activeVote.votes.values()).filter((v) => v === 'no').length;
+  const total = sessionState.getState().members.length;
+  const remaining = total - activeVote.votes.size;
+  if (yes > no + remaining || no > yes + remaining || remaining === 0) {
+    resolveVote(host);
+  }
 }
 
 /**
@@ -52,16 +85,17 @@ export function castVote(from: string, vote: 'yes' | 'no', host: PeerHost): void
 
   activeVote.votes.set(from, vote);
 
-  // Broadcast vote tally update
   const yes = Array.from(activeVote.votes.values()).filter((v) => v === 'yes').length;
   const no = Array.from(activeVote.votes.values()).filter((v) => v === 'no').length;
   const total = sessionState.getState().members.length;
+  const remaining = total - activeVote.votes.size;
 
-  bus.emit('vote:update', { yes, no, total });
+  emitTally(host);
 
-  // Check if all members have voted (early resolution)
-  if (activeVote.votes.size >= total - 1) {
-    // -1 because host votes as tiebreaker only
+  // Resolve early only if the outcome can no longer change
+  if (yes > no + remaining || no > yes + remaining) {
+    resolveVote(host);
+  } else if (remaining === 0) {
     resolveVote(host);
   }
 }
@@ -74,9 +108,17 @@ export function hostVote(vote: 'yes' | 'no', host: PeerHost): void {
   const hostId = sessionState.getState().hostId;
   activeVote.votes.set(hostId, vote);
 
-  // Check resolution
+  const yes = Array.from(activeVote.votes.values()).filter((v) => v === 'yes').length;
+  const no = Array.from(activeVote.votes.values()).filter((v) => v === 'no').length;
   const total = sessionState.getState().members.length;
-  if (activeVote.votes.size >= total) {
+  const remaining = total - activeVote.votes.size;
+
+  emitTally(host);
+
+  // Resolve early only if the outcome can no longer change
+  if (yes > no + remaining || no > yes + remaining) {
+    resolveVote(host);
+  } else if (remaining === 0) {
     resolveVote(host);
   }
 }
@@ -112,9 +154,26 @@ function resolveVote(host: PeerHost): void {
   bus.emit('vote:ended', { approved, track });
 
   if (approved) {
-    sessionState.addToQueue(track);
-    host.broadcast({ type: 'QUEUE_UPDATE', queue: sessionState.getState().queue });
-    bus.emit('ui:show-toast', { message: `"${track.title}" approved and added to queue!`, type: 'success' });
+    if (!sessionState.getState().currentTrack) {
+      // Nothing playing — start it immediately
+      sessionState.setCurrentTrack(track);
+      youtube.loadVideo(track.videoId);
+      const syncMsg: Message = {
+        type: 'SYNC',
+        videoId: track.videoId,
+        position: 0,
+        playing: true,
+        ts: Date.now(),
+        title: track.title,
+        submittedBy: track.submittedBy,
+      };
+      host.broadcast(syncMsg);
+      bus.emit('ui:show-toast', { message: `"${track.title}" approved! Now playing.`, type: 'success' });
+    } else {
+      sessionState.addToQueue(track);
+      host.broadcast({ type: 'QUEUE_UPDATE', queue: sessionState.getState().queue });
+      bus.emit('ui:show-toast', { message: `"${track.title}" approved and added to queue!`, type: 'success' });
+    }
   } else {
     bus.emit('ui:show-toast', { message: `"${track.title}" was rejected`, type: 'info' });
   }

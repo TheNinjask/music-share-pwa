@@ -112,6 +112,23 @@ export function renderCreate(container: HTMLElement): void {
         () => sessionState.getState().currentTrack?.videoId ?? null
       );
 
+      // Track guests joining and leaving in session state
+      bus.on('peer:guest-joined', ({ member }) => {
+        const currentMembers = sessionState.getState().members;
+        sessionState.setMembers([...currentMembers, member]);
+
+        // Send current state snapshot to the new guest
+        hostInstance!.sendTo(member.id, {
+          type: 'STATE_SNAPSHOT',
+          state: sessionState.getState(),
+        });
+      });
+
+      bus.on('peer:guest-left', ({ memberId }) => {
+        const currentMembers = sessionState.getState().members;
+        sessionState.setMembers(currentMembers.filter(m => m.id !== memberId));
+      });
+
       // Listen for messages from guests
       bus.on('peer:message', ({ from, message }) => {
         handleHostMessage(from, message);
@@ -141,7 +158,7 @@ function handleHostMessage(from: string, message: Message): void {
         title: message.title,
         submittedBy: message.submittedBy,
       };
-      modeHandler.handleSubmit(track, hostInstance);
+      modeHandler.handleSubmit(track, hostInstance, from);
       break;
     }
     case 'VOTE_CAST': {
