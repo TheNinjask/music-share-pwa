@@ -39,8 +39,6 @@ declare namespace YT {
     getCurrentTime(): number;
     getDuration(): number;
     getPlayerState(): PlayerState;
-    getVideoUrl(): string;
-    getVideoData(): { video_id: string; title: string; [key: string]: unknown };
     setVolume(volume: number): void;
     getVolume(): number;
     mute(): void;
@@ -53,10 +51,6 @@ declare namespace YT {
 let player: YT.Player | null = null;
 let isReady = false;
 let apiLoaded = false;
-let loadedVideoId: string | null = null;
-let adCheckTimer: ReturnType<typeof setInterval> | null = null;
-let adActive = false;
-let volumeBeforeAd = 100;
 
 /**
  * Load the YouTube IFrame API script
@@ -132,7 +126,6 @@ export async function initPlayer(): Promise<void> {
  */
 export function loadVideo(videoId: string, startSeconds = 0): void {
   if (!player || !isReady) return;
-  loadedVideoId = videoId;
   player.loadVideoById(videoId, startSeconds);
 }
 
@@ -222,88 +215,4 @@ export async function getVideoTitle(videoId: string): Promise<string> {
   } catch {
     return 'Unknown Track';
   }
-}
-
-// ===== Ad Detection & Blocking =====
-
-/**
- * Start monitoring for ads. Checks every 500ms whether the player is showing
- * an ad instead of the requested video. Mutes audio during ads.
- */
-export function startAdBlocker(): void {
-  stopAdBlocker();
-  adCheckTimer = setInterval(checkForAd, 500);
-}
-
-/**
- * Stop the ad monitoring loop
- */
-export function stopAdBlocker(): void {
-  if (adCheckTimer) {
-    clearInterval(adCheckTimer);
-    adCheckTimer = null;
-  }
-  if (adActive) {
-    adActive = false;
-    bus.emit('player:ad-ended');
-  }
-}
-
-/**
- * Check if an ad is currently playing and block it
- */
-function checkForAd(): void {
-  if (!player || !isReady || !loadedVideoId) return;
-
-  const isAdPlaying = detectAd();
-
-  if (isAdPlaying && !adActive) {
-    // Ad just started — mute it
-    adActive = true;
-    volumeBeforeAd = player.getVolume();
-    player.mute();
-    bus.emit('player:ad-blocked');
-  } else if (!isAdPlaying && adActive) {
-    // Ad just ended — restore audio
-    adActive = false;
-    player.unMute();
-    player.setVolume(volumeBeforeAd);
-    bus.emit('player:ad-ended');
-  }
-}
-
-/**
- * Detect whether the player is currently showing an ad.
- * Uses multiple heuristics:
- * 1. getVideoData().video_id differs from what we loaded
- * 2. getVideoUrl() contains ad-related parameters
- * 3. Duration is suspiciously short (typical pre-roll: 5-30s) while video_id mismatches
- */
-function detectAd(): boolean {
-  if (!player || !loadedVideoId) return false;
-
-  try {
-    // Primary: check if the currently playing video ID differs from what we loaded
-    const videoData = player.getVideoData();
-    if (videoData && videoData.video_id && videoData.video_id !== loadedVideoId) {
-      return true;
-    }
-
-    // Secondary: check URL for ad indicators
-    const url = player.getVideoUrl();
-    if (url && url.includes('&ad_')) {
-      return true;
-    }
-  } catch {
-    // getVideoData/getVideoUrl may not be available in all states
-  }
-
-  return false;
-}
-
-/**
- * Whether an ad is currently being blocked
- */
-export function isAdActive(): boolean {
-  return adActive;
 }

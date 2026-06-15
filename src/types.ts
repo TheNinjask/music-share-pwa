@@ -65,6 +65,4 @@ export interface AppEvents {
   'vote:update': { yes: number; no: number; total: number };
   'vote:ended': { approved: boolean; track: Track };
   'ui:show-toast': { message: string; type: 'info' | 'error' | 'success' };
-  'player:ad-blocked': void;
-  'player:ad-ended': void;
 }

@@ -61,6 +61,11 @@ export function renderPlayer(container: HTMLElement): void {
           </div>
         </div>
 
+        <!-- Skip Ad (available to everyone) -->
+        <button id="btn-skip-ad" class="mt-3 w-full text-xs text-slate-400 hover:text-yellow-400 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg py-1.5 px-3 transition-colors" style="${state.currentTrack ? '' : 'display:none'}">
+          ⚠️ Seeing an ad? Tap to skip
+        </button>
+
         <!-- Controls (host only) -->
         ${isHost ? `
         <div id="player-controls" class="flex items-center justify-center gap-4 mt-4" style="${state.currentTrack ? '' : 'display:none'}">
@@ -94,11 +99,6 @@ export function renderPlayer(container: HTMLElement): void {
 
       <!-- Vote Overlay -->
       <div id="vote-overlay" class="hidden"></div>
-
-      <!-- Ad Blocker Banner -->
-      <div id="ad-banner" class="hidden fixed top-0 left-0 right-0 bg-yellow-600/90 text-white text-center text-sm py-2 px-4 z-50">
-        ⚠️ Ad detected — audio muted until it ends
-      </div>
     </div>
   `);
 
@@ -120,11 +120,22 @@ function bindControls(container: HTMLElement, isHost: boolean): void {
   const urlInput = container.querySelector('#url-input') as HTMLInputElement;
   const btnSubmit = container.querySelector('#btn-submit') as HTMLButtonElement;
   const btnShare = container.querySelector('#btn-share') as HTMLButtonElement;
+  const btnSkipAd = container.querySelector('#btn-skip-ad') as HTMLButtonElement;
 
   // Submit track
   btnSubmit.addEventListener('click', () => submitTrack(urlInput));
   urlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') submitTrack(urlInput);
+  });
+
+  // Skip Ad — reload the current video at its current position to bypass the ad
+  btnSkipAd.addEventListener('click', () => {
+    const state = sessionState.getState();
+    if (state.currentTrack) {
+      const position = youtube.getCurrentTime();
+      youtube.loadVideo(state.currentTrack.videoId, position > 0 ? position : 0);
+      bus.emit('ui:show-toast', { message: 'Reloading track to skip ad', type: 'info' });
+    }
   });
 
   // Share
@@ -233,22 +244,6 @@ function setupListeners(container: HTMLElement, _isHost: boolean): void {
     overlay.classList.add('hidden');
     overlay.innerHTML = '';
   });
-
-  // Ad blocker UI feedback
-  bus.on('player:ad-blocked', () => {
-    const adBanner = container.querySelector('#ad-banner') as HTMLElement | null;
-    if (adBanner) {
-      adBanner.classList.remove('hidden');
-    }
-    bus.emit('ui:show-toast', { message: 'Ad detected — audio muted', type: 'info' });
-  });
-
-  bus.on('player:ad-ended', () => {
-    const adBanner = container.querySelector('#ad-banner') as HTMLElement | null;
-    if (adBanner) {
-      adBanner.classList.add('hidden');
-    }
-  });
 }
 
 function updateTrackDisplay(container: HTMLElement, track: Track | null): void {
@@ -256,6 +251,7 @@ function updateTrackDisplay(container: HTMLElement, track: Track | null): void {
   const submitterEl = container.querySelector('#track-submitter');
   const progressContainer = container.querySelector('#progress-container') as HTMLElement;
   const playerControls = container.querySelector('#player-controls') as HTMLElement | null;
+  const btnSkipAd = container.querySelector('#btn-skip-ad') as HTMLElement | null;
 
   if (titleEl) {
     titleEl.textContent = track?.title ?? 'No track playing';
@@ -268,6 +264,9 @@ function updateTrackDisplay(container: HTMLElement, track: Track | null): void {
   }
   if (playerControls) {
     playerControls.style.display = track ? '' : 'none';
+  }
+  if (btnSkipAd) {
+    btnSkipAd.style.display = track ? '' : 'none';
   }
 }
 
